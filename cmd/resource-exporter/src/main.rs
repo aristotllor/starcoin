@@ -64,11 +64,10 @@ pub fn export(
         csv_writer.write_record(None::<&[u8]>)?;
     }
 
-    let global_states = state_tree.dump()?;
-
-    for (address_bytes, account_state_bytes) in global_states.iter() {
-        let account: AccountAddress = bcs_ext::from_bytes(address_bytes)?;
-        let account_state: AccountState = account_state_bytes.as_slice().try_into()?;
+    for item in state_tree.dump_iter()? {
+        let (account, state) = item?;
+        let state: Vec<u8> = state.into();
+        let account_state: AccountState = state.as_slice().try_into()?;
         let resource_root = account_state.storage_roots()[DataType::RESOURCE.storage_index()];
         let resource = match resource_root {
             None => None,
@@ -108,8 +107,8 @@ struct MoveStruct(AnnotatedMoveStruct);
 
 impl serde::Serialize for MoveStruct {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(self.0.value.len()))?;
         for (field, value) in &self.0.value {
@@ -124,8 +123,8 @@ struct MoveValue(AnnotatedMoveValue);
 
 impl serde::Serialize for MoveValue {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         match &self.0 {
             AnnotatedMoveValue::Bool(b) => serializer.serialize_bool(*b),
@@ -167,9 +166,9 @@ pub struct ExporterOptions {
     pub block_id: HashValue,
 
     #[clap(
-        short='r',
-        default_value = "0x1::Account::Balance<0x1::STC::STC>",
-        parse(try_from_str=parse_struct_tag)
+    short = 'r',
+    default_value = "0x1::Account::Balance<0x1::STC::STC>",
+    parse(try_from_str = parse_struct_tag)
     )]
     /// resource struct tag.
     resource_type: StructTag,
